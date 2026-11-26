@@ -5,7 +5,14 @@ import path from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 
-const WEB_HOST = 'api-takumi.mihoyo.com'
+// 2026 年米游社前端迁移到 www.miyoushe.com 后，登录 Cookie 也落在 .miyoushe.com；
+// 继续请求 api-takumi.mihoyo.com 会拿不到登录态（-100）。
+// 优先新域名，失败再回退老域名，兼容两种登录方式。
+const API_HOSTS = [...new Set([
+  process.env.MIHOYO_API_HOST,
+  'api-takumi.miyoushe.com',
+  'api-takumi.mihoyo.com'
+].filter(Boolean))]
 // 米游社客户端版本 / 网页端签名 Salt。两者必须与当前线上版本匹配，
 // 旧版本（例如 2.81.1 + yUZ3s0...）会被服务端判定为登录状态失效。
 const APP_VERSION = process.env.MIHOYO_APP_VERSION || '2.117.0'
@@ -151,7 +158,7 @@ async function request(config, label) {
 
 function explainRetcode(retcode, message) {
   if (retcode === -100) {
-    return '登录状态失效。Cookie 不完整或已过期，必须包含 cookie_token_v2（或 cookie_token）与 ltuid_v2。注意 document.cookie 看不到 HttpOnly 的 cookie_token_v2，请从 F12 -> Network -> api-takumi.mihoyo.com 请求的 Request Headers 里复制完整 Cookie。'
+    return '登录状态失效。Cookie 不完整、已过期，或与接口域名不匹配（.miyoushe.com / .mihoyo.com 是两套 Cookie）。请确认 Cookie 来自能返回角色列表的域名，且包含 cookie_token_v2；document.cookie 看不到 HttpOnly 的 cookie_token_v2，要从 F12 -> Network 的 Request Headers 复制。'
   }
   if (retcode === -500001) {
     return '请求被风控/参数缺失（-500001）。请确认客户端版本与 Salt 是否仍为最新，并稍后重试。'
@@ -161,30 +168,43 @@ function explainRetcode(retcode, message) {
 
 async function getRoles(cookie, gameKey) {
   const game = GAMES[gameKey]
-  const data = await request({
-    method: 'GET',
-    url: `https://${WEB_HOST}/binding/api/getUserGameRolesByCookie`,
-    params: { game_biz: game.game_biz },
-    headers: buildHeaders(cookie)
-  }, `[${gameKey}] 获取角色列表`)
+  const failures = []
 
-  if (!data) return { roles: [], error: 'network' }
-  if (data.retcode !== 0) {
-    console.error(`[${gameKey}] 登录失败: ${explainRetcode(data.retcode, data.message)}`)
-    return { roles: [], error: data.retcode }
+  for (const host of API_HOSTS) {
+    const data = await request({
+      method: 'GET',
+      url: `https://${host}/binding/api/getUserGameRolesByCookie`,
+      params: { game_biz: game.game_biz },
+      headers: buildHeaders(cookie)
+    }, `[${gameKey}] 获取角色列表 (${host})`)
+
+    if (!data) {
+      failures.push(`${host}: 网络错误`)
+      continue
+    }
+    if (data.retcode !== 0) {
+      failures.push(`${host}: ${data.retcode} ${data.message || ''}`.trim())
+      continue
+    }
+
+    const roles = data.data?.list || []
+    console.log(`[${gameKey}] 登录成功，接口域名: ${host}`)
+    if (!roles.length) {
+      console.info(`[${gameKey}] 该账号下没有绑定${gameKey === 'Genshin' ? '原神' : '星穹铁道'}角色`)
+    }
+    return { roles, host, error: null }
   }
-  const roles = data.data?.list || []
-  if (!roles.length) {
-    console.info(`[${gameKey}] 该账号下没有绑定${gameKey === 'Genshin' ? '原神' : '星穹铁道'}角色`)
-  }
-  return { roles, error: null }
+
+  console.error(`[${gameKey}] 登录失败: ${explainRetcode(-100)}`)
+  console.error(`[${gameKey}] 接口尝试结果: ${failures.join(' | ')}`)
+  return { roles: [], host: null, error: 'auth' }
 }
 
-async function getSignInfo(cookie, gameKey, role) {
+async function getSignInfo(cookie, gameKey, role, host) {
   const game = GAMES[gameKey]
   const data = await request({
     method: 'GET',
-    url: `https://${WEB_HOST}/event/luna/info`,
+    url: `https://${host}/event/luna/info`,
     params: {
       lang: 'zh-cn',
       act_id: game.act_id,
@@ -202,10 +222,10 @@ async function getSignInfo(cookie, gameKey, role) {
   return data.data
 }
 
-async function signRole(cookie, gameKey, role) {
+async function signRole(cookie, gameKey, role, host) {
   const game = GAMES[gameKey]
   const region = role.region || game.fallback_region
-  const info = await getSignInfo(cookie, gameKey, role)
+  const info = await getSignInfo(cookie, gameKey, role, host)
 
   if (!info) return 'failed'
   if (info.first_bind) {
@@ -227,7 +247,7 @@ async function signRole(cookie, gameKey, role) {
 
   const data = await request({
     method: 'POST',
-    url: `https://${WEB_HOST}/event/luna/sign`,
+    url: `https://${host}/event/luna/sign`,
     headers,
     data: { act_id: game.act_id, region, uid: role.game_uid }
   }, `[${gameKey}] 签到`)
@@ -266,13 +286,13 @@ const doMYSSign = async (gameKey) => {
     console.log(`[${gameKey}] 账号 ${i + 1} (${maskCookie(cookie)}) 开始签到...`)
     const missing = testCookie(cookie)
     if (missing.length) {
-      console.warn(`[${gameKey}] Cookie 缺少字段: ${missing.join(', ')}。cookie_token_v2 是 HttpOnly，document.cookie 看不到；请从 F12 -> Network -> 任意 api-takumi.mihoyo.com 请求 -> Request Headers 复制完整 Cookie。`)
+      console.warn(`[${gameKey}] Cookie 缺少字段: ${missing.join(', ')}。cookie_token_v2 是 HttpOnly，document.cookie 看不到；请从 F12 -> Network -> api-takumi.miyoushe.com 请求 -> Request Headers 复制完整 Cookie。`)
     }
 
-    const { roles, error } = await getRoles(cookie, gameKey)
+    const { roles, host, error } = await getRoles(cookie, gameKey)
     if (error === null) {
       for (const role of roles) {
-        const result = await signRole(cookie, gameKey, role)
+        const result = await signRole(cookie, gameKey, role, host)
         stats[result] += 1
         await randomSleep(1, 3)
       }
