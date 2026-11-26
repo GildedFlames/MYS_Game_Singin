@@ -55,6 +55,16 @@ function readLocalCookie() {
   return ''
 }
 
+function normalizeCookie(value) {
+  let cookie = String(value || '').trim()
+  // 兼容用户直接粘贴 “Cookie: xxx” 或带引号的情况。
+  cookie = cookie.replace(/^cookie\s*:\s*/i, '').trim()
+  if ((cookie.startsWith('"') && cookie.endsWith('"')) || (cookie.startsWith("'") && cookie.endsWith("'"))) {
+    cookie = cookie.slice(1, -1).trim()
+  }
+  return cookie
+}
+
 const getCookieConfig = () => {
   const fromEnv = [process.env.MYS_COOKIES, process.env.MYS_COOKIE]
     .filter(Boolean)
@@ -64,7 +74,7 @@ const getCookieConfig = () => {
     console.error('[MYS] 缺少 Cookie。请设置 MYS_COOKIES，或把完整 Cookie 写入 MY cook 不上传i.txt / cookie.txt。')
     return { Genshin: [], StarRail: [] }
   }
-  const list = raw.split(/[,\r\n]+/).map((item) => item.trim()).filter(Boolean)
+  const list = raw.split(/[,\r\n]+/).map(normalizeCookie).filter(Boolean)
   return { Genshin: list, StarRail: list }
 }
 
@@ -276,4 +286,4 @@ const doMYSSign = async (gameKey) => {
   return stats
 }
 
-export { doMYSSign, getDS, parseCookie }
+export { doMYSSign, getDS, parseCookie, normalizeCookie }

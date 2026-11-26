@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { getDS, parseCookie } from '../src/MYS/index.js'
+import { getDS, parseCookie, normalizeCookie } from '../src/MYS/index.js'
 
 test('parseCookie parses mihoyo cookie into key/value pairs', () => {
   const cookie = '_MHYUUID=abc; ltuid_v2=425433597; cookie_token_v2=v2_xxx; ltmid_v2=0ch0yy1z3v_mhy'
@@ -14,4 +14,12 @@ test('parseCookie parses mihoyo cookie into key/value pairs', () => {
 test('getDS returns timestamp,nonce,md5 signature', () => {
   const ds = getDS()
   assert.match(ds, /^\d{10},[a-z0-9]{1,6},[a-f0-9]{32}$/)
+})
+
+test('normalizeCookie accepts a copied "Cookie:" header line', () => {
+  assert.equal(
+    normalizeCookie('  Cookie: ltuid_v2=1; cookie_token_v2=v2_x;  '),
+    'ltuid_v2=1; cookie_token_v2=v2_x;'
+  )
+  assert.equal(normalizeCookie('"ltuid_v2=1; cookie_token_v2=v2_x"'), 'ltuid_v2=1; cookie_token_v2=v2_x')
 })
