@@ -151,7 +151,7 @@ async function request(config, label) {
 
 function explainRetcode(retcode, message) {
   if (retcode === -100) {
-    return '登录状态失效。Cookie 不完整或已过期，必须包含 cookie_token_v2（或 cookie_token）与 ltuid_v2；请在无痕窗口重新登录米游社后复制完整 document.cookie。'
+    return '登录状态失效。Cookie 不完整或已过期，必须包含 cookie_token_v2（或 cookie_token）与 ltuid_v2。注意 document.cookie 看不到 HttpOnly 的 cookie_token_v2，请从 F12 -> Network -> api-takumi.mihoyo.com 请求的 Request Headers 里复制完整 Cookie。'
   }
   if (retcode === -500001) {
     return '请求被风控/参数缺失（-500001）。请确认客户端版本与 Salt 是否仍为最新，并稍后重试。'
@@ -266,7 +266,7 @@ const doMYSSign = async (gameKey) => {
     console.log(`[${gameKey}] 账号 ${i + 1} (${maskCookie(cookie)}) 开始签到...`)
     const missing = testCookie(cookie)
     if (missing.length) {
-      console.warn(`[${gameKey}] Cookie 缺少字段: ${missing.join(', ')}。服务端大概率返回 -100，请重新抓取完整 Cookie。`)
+      console.warn(`[${gameKey}] Cookie 缺少字段: ${missing.join(', ')}。cookie_token_v2 是 HttpOnly，document.cookie 看不到；请从 F12 -> Network -> 任意 api-takumi.mihoyo.com 请求 -> Request Headers 复制完整 Cookie。`)
     }
 
     const { roles, error } = await getRoles(cookie, gameKey)
