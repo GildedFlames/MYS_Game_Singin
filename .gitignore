@@ -17,5 +17,10 @@ dist
 .env.*.local
 .env
 
+# local credentials (never commit cookies/tokens)
+MY cook*.txt
+cookie*.txt
+.cookie
+
 # misc
 .DS_Store
