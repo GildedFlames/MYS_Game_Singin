@@ -118,17 +118,26 @@
    npm install
    ```
 
-4. **配置 Cookie**（二选一，推荐环境变量）:
-   - 环境变量：`MYS_COOKIES='cookie1,cookie2'`
-   - 或在项目根目录新建 `cookie.txt` / `MY cook 不上传i.txt`，把完整 Cookie 放进去（这两个文件已被 `.gitignore` 忽略）
+4. **获取完整 Cookie（推荐自动方式）**:
+   ```sh
+   npm run login
+   ```
+   - 会自动打开本机 Edge/Chrome，扫码登录后把**含 HttpOnly `cookie_token_v2`** 的完整 Cookie 写入 `cookie.txt`
+   - 第二个账号再执行一次 `npm run login`，会自动追加（同账号则刷新）
+   - 系统代理导致登录页打不开时加 `-- --no-proxy`
+   - 想写到别的文件：`npm run login -- --file "MY cook 不上传i.txt"`
 
-   脚本现在会读取当前版本的客户端版本号与网页端 Salt（默认 `2.117.0` / `4751cb...`），如官方再次更新，可用 `MIHOYO_APP_VERSION`、`MIHOYO_WEB_SALT` 覆盖。
+   也可以手动配置（二选一）:
+   - 环境变量：`MYS_COOKIES='cookie1,cookie2'`
+   - 或在项目根目录新建 `cookie.txt` / `MY cook 不上传i.txt`，把完整 Cookie 放进去（已加入 `.gitignore`）
+
+   脚本默认使用客户端版本 `2.117.0` 与网页端 Salt `4751cb...`；官方更新后可用 `MIHOYO_APP_VERSION`、`MIHOYO_WEB_SALT` 覆盖。
 
 5. **在 /src/MihoyoCloud/index.js getTokenConfig 方法中设置Token信息**（或使用环境变量 `GENSHIN_TOKENS` / `STARRAIL_TOKENS`）
 
 6. **运行脚本**:
    ```sh
-   node main.js
+   npm start
    ```
 
 ## 常见问题
@@ -138,7 +147,7 @@
 
 1. Cookie 是否包含 `cookie_token_v2` 或 `cookie_token`；
 2. Cookie 是否包含 `ltuid_v2` / `account_id_v2`；
-3. 是否从无痕窗口刚登录的页面复制，且复制后未退出登录；
+3. 不要用 Console 的 `document.cookie`（HttpOnly 字段看不到），直接用 `npm run login` 自动抓，或从 F12 -> Network 的 Request Headers 复制；
 4. 账号是否触发了米游社风控（可先在浏览器打开米游社手动签到确认）。
 
 ### 日志提示 `-500001` / 请求被风控
