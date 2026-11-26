@@ -15,7 +15,7 @@
 
 > **重要：Cookie 必须是“已登录”的完整 Cookie，至少包含 `cookie_token_v2`（或 `cookie_token`）和 `ltuid_v2`。**
 > 如果只有 `ltuid` / `account_id` / `ltmid_v2`，所有签到接口都会返回 `-100 登录状态失效`，这不是脚本本身的问题。
-> 请用无痕窗口重新登录后再复制一次 `document.cookie`，不要把 Cookie 提交到仓库。
+> 请不要用 Console 的 `document.cookie` 抓取：`cookie_token_v2` 可能是 HttpOnly，Console 里根本看不到，复制出来必然缺字段。
 
 1. **打开浏览器**:
    - 打开你的浏览器，进入无痕/隐身模式。
@@ -23,20 +23,15 @@
 2. **登录米游社**:
    - 访问 [原神论坛](http://bbs.mihoyo.com/ys) 或 [崩铁论坛](http://bbs.mihoyo.com/sr)，二选一进行登录操作，原神崩铁Cookie通用。
    
-3. **获取 Cookie**:
+3. **获取完整 Cookie（推荐 Network 方式）**:
    - 按下键盘上的 `F12` 或右键点击页面选择“检查”，打开开发者工具。
-   - 切换到“Console”选项卡，复制粘贴以下代码：
-     ```js
-     const cookie = document.cookie
-      const ask = confirm('Cookie:' + cookie + '\n\nDo you want to copy the cookie to the clipboard?')
-      if (ask == true) {
-        copy(cookie)
-        msg = cookie
-      } else {
-        msg = 'Cancel'
-      }
-     ```
-   - 按下回车键，此时 Cookie 已经复制到你的剪贴板。
+   - 切换到 **Network** 选项卡，刷新页面。
+   - 随便点开一条发往 `api-takumi.mihoyo.com` 的请求（例如 `getUserGameRolesByCookie`）。
+   - 在 **Request Headers** 中找到 `Cookie:`，复制它后面的**整段内容**。
+   - 确认这段内容里同时有 `cookie_token_v2=` 和 `ltuid_v2=`（老的 `cookie_token` / `ltuid` 也可以）。
+
+   > 不要用 Console 里 `document.cookie` 的方式复制。米游社的 `cookie_token_v2` 可能是 HttpOnly，
+   > `document.cookie` 看不到它，复制出来就是一个“只有 ltuid、没有登录态”的残缺 Cookie，接口必然返回 `-100`。
 
 ## 获取 Token 方式 - 云游戏签到必需
 
