@@ -1,0 +1,26 @@
+name: Update Activity Timestamp
+
+on:
+  schedule:
+    - cron: '0 0 1 */1 *'  # 每1个月1号 00:00 UTC
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v5
+      
+    - name: Update timestamp
+      run: |
+        mkdir -p Temporary
+        date -u > Temporary/.last-active
+        
+    - name: Commit
+      run: |
+        git config user.name 'github-actions[bot]'
+        git config user.email 'github-actions[bot]@users.noreply.github.com'
+        git add Temporary/.last-active
+        git commit -m "chore: update activity timestamp [skip ci]" || exit 0
+        git push
