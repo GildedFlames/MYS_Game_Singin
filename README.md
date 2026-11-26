@@ -13,6 +13,10 @@
 
 ## 获取 Cookie 方式 - 米游社签到必需
 
+> **重要：Cookie 必须是“已登录”的完整 Cookie，至少包含 `cookie_token_v2`（或 `cookie_token`）和 `ltuid_v2`。**
+> 如果只有 `ltuid` / `account_id` / `ltmid_v2`，所有签到接口都会返回 `-100 登录状态失效`，这不是脚本本身的问题。
+> 请用无痕窗口重新登录后再复制一次 `document.cookie`，不要把 Cookie 提交到仓库。
+
 1. **打开浏览器**:
    - 打开你的浏览器，进入无痕/隐身模式。
    
@@ -91,7 +95,7 @@
         - name: Set up Node.js
           uses: actions/setup-node@v3
           with:
-            node-version: '18'
+            node-version: '20'
 
         - name: Install dependencies
           run: npm install
@@ -119,26 +123,44 @@
    npm install
    ```
 
-4. **在 /src/MYS/index.js getCookieConfig 方法中设置Cookie信息**:
-    ```js
-    const MYSCookies = 'cookie1,cookie2'
-    ```
+4. **配置 Cookie**（二选一，推荐环境变量）:
+   - 环境变量：`MYS_COOKIES='cookie1,cookie2'`
+   - 或在项目根目录新建 `cookie.txt` / `MY cook 不上传i.txt`，把完整 Cookie 放进去（这两个文件已被 `.gitignore` 忽略）
 
-5. **在 /src/MihoyoCloud/index.js getTokenConfig 方法中设置Token信息**:
-    ```js
-    const genshinTokens = 'ys-token1,ys-token2'
-    const StarRailTokens = 'sr-token1,sr-token2'
-    ```
+   脚本现在会读取当前版本的客户端版本号与网页端 Salt（默认 `2.117.0` / `4751cb...`），如官方再次更新，可用 `MIHOYO_APP_VERSION`、`MIHOYO_WEB_SALT` 覆盖。
+
+5. **在 /src/MihoyoCloud/index.js getTokenConfig 方法中设置Token信息**（或使用环境变量 `GENSHIN_TOKENS` / `STARRAIL_TOKENS`）
 
 6. **运行脚本**:
    ```sh
    node main.js
    ```
 
+## 常见问题
+
+### 日志提示 `-100 登录状态失效`
+说明 Cookie 不是有效的登录态，而不是代码写错。依次检查：
+
+1. Cookie 是否包含 `cookie_token_v2` 或 `cookie_token`；
+2. Cookie 是否包含 `ltuid_v2` / `account_id_v2`；
+3. 是否从无痕窗口刚登录的页面复制，且复制后未退出登录；
+4. 账号是否触发了米游社风控（可先在浏览器打开米游社手动签到确认）。
+
+### 日志提示 `-500001` / 请求被风控
+通常是客户端版本号或 `DS` Salt 过期。本项目默认使用 `2.117.0` + `4751cb...`，可通过环境变量覆盖：
+
+```sh
+MIHOYO_APP_VERSION=2.117.0 MIHOYO_WEB_SALT=4751cb5557bfad5e249e58462c39fb0a node main.js
+```
+
+### GitHub Actions 显示成功但没签到
+旧版本在缺少 `MYS_COOKIES` 时会直接跳过并仍然退出码 0。现已改为缺少 Cookie 或存在签到失败时返回非 0，Actions 会显示失败。请检查 `Settings -> Secrets and variables -> Actions` 中的 `MYS_COOKIES`。
+
 ## 更新日志
 
 - **2025-02-08**: v1.0.0 初始发布，支持原神和崩铁多账号签到功能。
 - **2025-09-17**: v1.1.0 增加云原神云崩铁签到功能。
+- **2026-11-26**: v1.2.0 修复签到整体失效：更新客户端版本与网页端 Salt；改用通用 `/event/luna/sign` 接口并先查询签到状态；补齐 Cookie 完整性检查与 `-100` 提示；支持本地 Cookie 文件；失败时返回非 0 退出码。
 - 
 ## 致谢与版权说明
 
