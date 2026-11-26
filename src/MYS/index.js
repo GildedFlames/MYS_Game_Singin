@@ -202,6 +202,12 @@ async function getRoles(cookie, gameKey) {
 
 async function getSignInfo(cookie, gameKey, role, host) {
   const game = GAMES[gameKey]
+  const headers = buildHeaders(cookie, {
+    'Origin': 'https://act.mihoyo.com',
+    'Referer': 'https://act.mihoyo.com/'
+  })
+  if (game.signgame) headers['x-rpc-signgame'] = game.signgame
+
   const data = await request({
     method: 'GET',
     url: `https://${host}/event/luna/info`,
@@ -211,7 +217,7 @@ async function getSignInfo(cookie, gameKey, role, host) {
       region: role.region || game.fallback_region,
       uid: role.game_uid
     },
-    headers: buildHeaders(cookie)
+    headers
   }, `[${gameKey}] 查询签到状态`)
 
   if (!data) return null
