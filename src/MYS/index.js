@@ -72,6 +72,11 @@ function normalizeCookie(value) {
   return cookie
 }
 
+function splitCookies(raw) {
+  // 英文逗号、中文逗号、换行都可以作为多账号分隔符
+  return raw.split(/[,，\r\n]+/).map(normalizeCookie).filter(Boolean)
+}
+
 const getCookieConfig = () => {
   const fromEnv = [process.env.MYS_COOKIES, process.env.MYS_COOKIE]
     .filter(Boolean)
@@ -81,7 +86,7 @@ const getCookieConfig = () => {
     console.error('[MYS] 缺少 Cookie。请设置 MYS_COOKIES，或把完整 Cookie 写入 MY cook 不上传i.txt / cookie.txt。')
     return { Genshin: [], StarRail: [] }
   }
-  const list = raw.split(/[,\r\n]+/).map(normalizeCookie).filter(Boolean)
+  const list = splitCookies(raw)
   return { Genshin: list, StarRail: list }
 }
 
@@ -312,4 +317,4 @@ const doMYSSign = async (gameKey) => {
   return stats
 }
 
-export { doMYSSign, getDS, parseCookie, normalizeCookie }
+export { doMYSSign, getDS, parseCookie, normalizeCookie, splitCookies }
